@@ -12,6 +12,7 @@ public class App {
         final String simulationName = args[0];
         final int N = Integer.parseInt(args[1]);
         final double L = Double.parseDouble(args[2]);
+        final double T = Integer.parseInt(args[3]);
         final Path simulationPath = Path.of(BASE_PATH, SIMULATIONS_FOLDER, simulationName);
         Files.createDirectories(simulationPath);
         final Path staticFile = simulationPath.resolve("static.txt");
@@ -22,15 +23,17 @@ public class App {
             writer.newLine();
             writer.write(String.valueOf(L));
             writer.newLine();
-            writer.write(String.valueOf(Particle.r));
+            writer.write(String.valueOf(Particle.R_DEFAULT));
             writer.newLine();
-            writer.write(String.valueOf(Particle.m));
+            writer.write(String.valueOf(Particle.M_DEFAULT));
             writer.newLine();
-            writer.write(String.valueOf(Particle.v));
+            writer.write(String.valueOf(Particle.V_DEFAULT));
+            writer.newLine();
+            writer.write(String.valueOf(T));
             writer.newLine();
         }
 
-        final Grid grid = new Grid(N, L);
+        final Grid grid = new Grid(N, L, Particle.R_DEFAULT);
         final Path dynamicFile = simulationPath.resolve("dynamic.txt");
         double t = 0;
         try (var writer = Files.newBufferedWriter(dynamicFile)) {
@@ -39,6 +42,9 @@ public class App {
             for (Particle p : grid) {
                 writer.write(String.format("%f %f %f %f", p.getX(), p.getY(), p.getVx(), p.getVy()));
                 writer.newLine();
+            }
+            for (int i = 1; i < T; i++) {
+
             }
         }
     }
