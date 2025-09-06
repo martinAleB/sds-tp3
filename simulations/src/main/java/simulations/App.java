@@ -3,6 +3,7 @@ package simulations;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 public class App {
     private static final String SIMULATIONS_FOLDER = "simulations";
@@ -35,16 +36,34 @@ public class App {
 
         final Grid grid = new Grid(N, L, Particle.R_DEFAULT);
         final Path dynamicFile = simulationPath.resolve("dynamic.txt");
-        double t = 0;
+        double tAccum = 0;
         try (var writer = Files.newBufferedWriter(dynamicFile)) {
-            writer.write(String.valueOf(t));
+            writer.write(String.valueOf(tAccum));
             writer.newLine();
             for (Particle p : grid) {
                 writer.write(String.format("%f %f %f %f", p.getX(), p.getY(), p.getVx(), p.getVy()));
                 writer.newLine();
             }
             for (int i = 1; i < T; i++) {
-
+                List<Event> events = grid.getNextEvents();
+                double dt = events.get(0).getTime();
+                grid.move(dt);
+                for (Event event : events) {
+                    if (EventType.WALL_COLLISION.equals(event.getEventType())) {
+                        WallCollisionEvent wallEvent = (WallCollisionEvent) event;
+                        wallEvent.processEvent();
+                    } else {
+                        ParticleCollisionEvent particleEvent = (ParticleCollisionEvent) event;
+                        particleEvent.processEvent();
+                    }
+                }
+                tAccum += dt;
+                writer.write(String.valueOf(tAccum));
+                writer.newLine();
+                for (Particle p : grid) {
+                    writer.write(String.format("%f %f %f %f", p.getX(), p.getY(), p.getVx(), p.getVy()));
+                    writer.newLine();
+                }
             }
         }
     }

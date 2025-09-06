@@ -1,8 +1,10 @@
 package simulations;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.PriorityQueue;
 
 public class Grid implements Iterable<Particle> {
@@ -16,7 +18,7 @@ public class Grid implements Iterable<Particle> {
     public Grid(int N, double L, double r) {
         this.L = L;
         this.N = N;
-        this.channelBelow = (ENCLOSURE_LONG - 2 * L) / 2;
+        this.channelBelow = (ENCLOSURE_LONG - L) / 2;
         for (int i = 0; i < N; i++) {
             double x = 0, y = 0;
             boolean flag = false;
@@ -45,51 +47,51 @@ public class Grid implements Iterable<Particle> {
     }
 
     private Event timeToWallCollisionFromBox(final Particle p) {
-        final Double txRight = p.timeToXCoord(ENCLOSURE_LONG - p.getR());
-        final Double txLeft = p.timeToXCoord(p.getR());
-        final Double tyUp = p.timeToYCoord(ENCLOSURE_LONG - p.getR());
-        final Double tyDown = p.timeToYCoord(p.getR());
+        final double txRight = p.timeToXCoord(ENCLOSURE_LONG);
+        final double txLeft = p.timeToXCoord(0);
+        final double tyUp = p.timeToYCoord(ENCLOSURE_LONG);
+        final double tyDown = p.timeToYCoord(0);
+        final double minTy = Math.min(tyUp, tyDown);
 
-        if (txRight.equals(Double.POSITIVE_INFINITY)) {
+        if (txRight == Double.POSITIVE_INFINITY) {
             // Nunca puedo ir en direccion al canal
-            double minTy = Math.min(tyUp, tyDown);
             return txLeft < minTy
-                    ? new WallCollisionEvent(txLeft, p, Wall.X_AXIS_WALL)
-                    : new WallCollisionEvent(minTy, p, Wall.Y_AXIS_WALL);
+                    ? new WallCollisionEvent(txLeft, p, Wall.HORIZONTAL)
+                    : new WallCollisionEvent(minTy, p, Wall.VERTICAL);
         }
         // Chequeo posicion en y para ver si cae en la apertura del canal
+        if (minTy < txRight) {
+            return new WallCollisionEvent(minTy, p, Wall.VERTICAL);
+        }
         double yAfterTxRight = p.getYAfterDt(txRight);
         double yChannelBelow = channelBelow;
         double yChannelAbove = channelBelow + L;
         if ((yAfterTxRight + p.getR()) > yChannelAbove || (yAfterTxRight - p.getR()) < yChannelBelow) {
             // No cae en el canal
-            double minTy = Math.min(tyUp, tyDown);
-            return txRight < minTy
-                    ? new WallCollisionEvent(txRight, p, Wall.X_AXIS_WALL)
-                    : new WallCollisionEvent(minTy, p, Wall.Y_AXIS_WALL);
+            return new WallCollisionEvent(txRight, p, Wall.HORIZONTAL);
         }
         // Hay que chequear el tiempo en el que llega a cada una de las paredes del
         // canal
-        final double tyChannelMin = Math.min(p.timeToYCoord(yChannelAbove - p.getR()),
-                p.timeToYCoord(yChannelBelow + p.getR()));
-        final double txChannel = p.timeToXCoord(2 * ENCLOSURE_LONG - p.getR());
+        final double tyChannelMin = Math.min(p.timeToYCoord(yChannelAbove),
+                p.timeToYCoord(yChannelBelow));
+        final double txChannel = p.timeToXCoord(2 * ENCLOSURE_LONG);
         return txChannel < tyChannelMin
-                ? new WallCollisionEvent(txChannel, p, Wall.X_AXIS_WALL)
-                : new WallCollisionEvent(tyChannelMin, p, Wall.Y_AXIS_WALL);
+                ? new WallCollisionEvent(txChannel, p, Wall.HORIZONTAL)
+                : new WallCollisionEvent(tyChannelMin, p, Wall.VERTICAL);
     }
 
     private Event timeToWallCollisionFromChannel(final Particle p) {
-        final Double txRight = p.timeToXCoord(2 * ENCLOSURE_LONG - p.getR());
-        final Double txLeft = p.timeToXCoord(ENCLOSURE_LONG + p.getR());
-        final Double tyUp = p.timeToYCoord(ENCLOSURE_LONG + L - p.getR());
-        final Double tyDown = p.timeToYCoord(ENCLOSURE_LONG + p.getR());
+        final double txRight = p.timeToXCoord(2 * ENCLOSURE_LONG);
+        final double txLeft = p.timeToXCoord(ENCLOSURE_LONG);
+        final double tyUp = p.timeToYCoord(ENCLOSURE_LONG + L);
+        final double tyDown = p.timeToYCoord(ENCLOSURE_LONG);
 
-        if (txLeft.equals(Double.POSITIVE_INFINITY)) {
+        if (txLeft == Double.POSITIVE_INFINITY) {
             // Nunca puedo ir en direccion a la box
             double minTy = Math.min(tyUp, tyDown);
             return txRight < minTy
-                    ? new WallCollisionEvent(txRight, p, Wall.X_AXIS_WALL)
-                    : new WallCollisionEvent(minTy, p, Wall.Y_AXIS_WALL);
+                    ? new WallCollisionEvent(txRight, p, Wall.HORIZONTAL)
+                    : new WallCollisionEvent(minTy, p, Wall.VERTICAL);
         }
         // Chequeo posicion en y para ver si cae en
         double yAfterTxLeft = p.getYAfterDt(txLeft);
@@ -99,35 +101,42 @@ public class Grid implements Iterable<Particle> {
             // Se sale del canal
             double minTy = Math.min(tyUp, tyDown);
             return txLeft < minTy
-                    ? new WallCollisionEvent(txLeft, p, Wall.X_AXIS_WALL)
-                    : new WallCollisionEvent(minTy, p, Wall.Y_AXIS_WALL);
+                    ? new WallCollisionEvent(txLeft, p, Wall.HORIZONTAL)
+                    : new WallCollisionEvent(minTy, p, Wall.VERTICAL);
         }
         // Hay que chequear el tiempo en el que llega a cada una de las paredes del
         // canal
-        final double tyChannelMin = Math.min(p.timeToYCoord(yChannelAbove - p.getR()),
-                p.timeToYCoord(yChannelBelow + p.getR()));
-        final double txChannel = p.timeToXCoord(2 * ENCLOSURE_LONG - p.getR());
+        final double tyChannelMin = Math.min(p.timeToYCoord(yChannelAbove),
+                p.timeToYCoord(yChannelBelow));
+        final double txChannel = p.timeToXCoord(2 * ENCLOSURE_LONG);
         return txChannel < tyChannelMin
-                ? new WallCollisionEvent(txChannel, p, Wall.X_AXIS_WALL)
-                : new WallCollisionEvent(tyChannelMin, p, Wall.Y_AXIS_WALL);
+                ? new WallCollisionEvent(txChannel, p, Wall.HORIZONTAL)
+                : new WallCollisionEvent(tyChannelMin, p, Wall.VERTICAL);
     }
 
     private Event timeToWallCollision(final Particle p) {
-        if (inBox(p))
+        if (inBox(p)) {
+            System.out.println("Box");
             return timeToWallCollisionFromBox(p);
-        if (inChannel(p))
+        }
+        if (inChannel(p)) {
+            System.out.println("Channel");
             return timeToWallCollisionFromChannel(p);
-        return null;
+        }
+        throw new IllegalStateException("Particle is out of bounds. x: " + p.getX() + ", y: " + p.getY() + ", vx: "
+                + p.getVx() + ", vy: " + p.getVy());
     }
 
     public List<Event> getNextEvents() {
         PriorityQueue<Event> pq = new PriorityQueue<>();
+        Map<Particle, Map<Particle, Boolean>> calculatedCollision = new HashMap<>();
         for (Particle p : this) {
+            calculatedCollision.putIfAbsent(p, new HashMap<>());
             pq.add(timeToWallCollision(p));
             for (Particle other : this) {
-                if (p != other) {
-                    Double time = p.timeToCollision(other);
-                    pq.add(new Event(time, p));
+                if (p != other && !calculatedCollision.getOrDefault(other, Map.of()).getOrDefault(p, false)) {
+                    calculatedCollision.get(p).put(other, true);
+                    pq.add(p.timeToCollision(other));
                 }
             }
         }

@@ -47,8 +47,7 @@ public class Particle {
         return Double.POSITIVE_INFINITY;
     }
 
-    // @TODO: revisar esto
-    public Double timeToCollision(Particle other) {
+    public Event timeToCollision(Particle other) {
         // Vectores relativos
         double dx = other.x - this.x;
         double dy = other.y - this.y;
@@ -64,21 +63,22 @@ public class Particle {
         // Sin movimiento relativo
         if (vv == 0.0) {
             // Si ya están tocando/solapadas, considerá t=0 (colisión inmediata)
-            return (rr <= sigma * sigma) ? 0.0 : Double.POSITIVE_INFINITY;
+            return new ParticleCollisionEvent((rr <= sigma * sigma) ? 0.0 : Double.POSITIVE_INFINITY, this, other);
         }
 
         // Si no se están acercando, no colisionan
         if (rv >= 0.0)
-            return Double.POSITIVE_INFINITY;
+            return new ParticleCollisionEvent(Double.POSITIVE_INFINITY, this, other);
 
         // Discriminante
         double d = rv * rv - vv * (rr - sigma * sigma);
         if (d < 0.0)
-            return Double.POSITIVE_INFINITY; // no hay solución real
+            return new ParticleCollisionEvent(Double.POSITIVE_INFINITY, this, other); // no hay solución real
 
         // Raíz más chica no negativa
         double t = -(rv + Math.sqrt(d)) / vv;
-        return (t >= 0.0) ? t : Double.POSITIVE_INFINITY; // guard por redondeo numérico
+        return new ParticleCollisionEvent((t >= 0.0) ? t : Double.POSITIVE_INFINITY, this, other); // guard por redondeo
+                                                                                                   // numérico
     }
 
     public double getXAfterDt(double dt) {
@@ -119,15 +119,39 @@ public class Particle {
     }
 
     public void invertVx() {
-        this.vx = -vx;
+        setVx(-vx);
     }
 
     public void invertVy() {
-        this.vy = -vy;
+        setVy(-vy);
+    }
+
+    public void setVx(double vx) {
+        this.vx = vx;
+    }
+
+    public void setVy(double vy) {
+        this.vy = vy;
     }
 
     @Override
     public String toString() {
         return String.format("X = %f, Y = %f, vx = %f, vy = %f", x, y, vx, vy);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        return this == obj || (obj instanceof Particle other &&
+                Double.compare(x, other.x) == 0 &&
+                Double.compare(y, other.y) == 0 &&
+                Double.compare(r, other.r) == 0 &&
+                Double.compare(m, other.m) == 0 &&
+                Double.compare(vx, other.vx) == 0 &&
+                Double.compare(vy, other.vy) == 0);
+    }
+
+    @Override
+    public int hashCode() {
+        return java.util.Objects.hash(x, y, r, m, vx, vy);
     }
 }
