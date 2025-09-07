@@ -13,7 +13,7 @@ public class App {
         final String simulationName = args[0];
         final int N = Integer.parseInt(args[1]);
         final double L = Double.parseDouble(args[2]);
-        final double T = Integer.parseInt(args[3]);
+        final int T = Integer.parseInt(args[3]);
         final Path simulationPath = Path.of(BASE_PATH, SIMULATIONS_FOLDER, simulationName);
         Files.createDirectories(simulationPath);
         final Path staticFile = simulationPath.resolve("static.txt");
@@ -49,13 +49,7 @@ public class App {
                 double dt = events.get(0).getTime();
                 grid.move(dt);
                 for (Event event : events) {
-                    if (EventType.WALL_COLLISION.equals(event.getEventType())) {
-                        WallCollisionEvent wallEvent = (WallCollisionEvent) event;
-                        wallEvent.processEvent();
-                    } else {
-                        ParticleCollisionEvent particleEvent = (ParticleCollisionEvent) event;
-                        particleEvent.processEvent();
-                    }
+                    event.processEvent();
                 }
                 tAccum += dt;
                 writer.write(String.valueOf(tAccum));
@@ -66,5 +60,6 @@ public class App {
                 }
             }
         }
+        System.out.printf("Simulacion %s generada con éxito.%nN = %d, L = %.2f, T = %d%n", simulationName, N, L, T);
     }
 }

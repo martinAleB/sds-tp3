@@ -12,9 +12,9 @@ public class WallCollisionEvent extends Event {
     public void processEvent() {
         Particle p = getParticle();
         if (wall == Wall.VERTICAL) {
-            p.invertVy();
-        } else if (wall == Wall.HORIZONTAL) {
             p.invertVx();
+        } else if (wall == Wall.HORIZONTAL) {
+            p.invertVy();
         }
     }
 }

@@ -13,12 +13,14 @@ public class Grid implements Iterable<Particle> {
     private final int N;
     private final double L;
     private final double channelBelow;
+    private final double channelAbove;
     private final List<Particle> particles = new ArrayList<>();
 
     public Grid(int N, double L, double r) {
         this.L = L;
         this.N = N;
         this.channelBelow = (ENCLOSURE_LONG - L) / 2;
+        this.channelAbove = channelBelow + L;
         for (int i = 0; i < N; i++) {
             double x = 0, y = 0;
             boolean flag = false;
@@ -37,12 +39,12 @@ public class Grid implements Iterable<Particle> {
     }
 
     private boolean inBox(final Particle p) {
-        return (p.getX() >= 0 && p.getX() <= ENCLOSURE_LONG)
-                && (p.getY() >= 0 && p.getY() <= ENCLOSURE_LONG);
+        return (p.getX() >= 0 && p.getX() < ENCLOSURE_LONG)
+                && (p.getY() >= 0 && p.getY() < ENCLOSURE_LONG);
     }
 
     private boolean inChannel(final Particle p) {
-        return p.getX() > ENCLOSURE_LONG && p.getX() < 2 * ENCLOSURE_LONG
+        return p.getX() >= ENCLOSURE_LONG && p.getX() < 2 * ENCLOSURE_LONG
                 && p.getY() > channelBelow && p.getY() < channelBelow + L;
     }
 
@@ -56,71 +58,68 @@ public class Grid implements Iterable<Particle> {
         if (txRight == Double.POSITIVE_INFINITY) {
             // Nunca puedo ir en direccion al canal
             return txLeft < minTy
-                    ? new WallCollisionEvent(txLeft, p, Wall.HORIZONTAL)
-                    : new WallCollisionEvent(minTy, p, Wall.VERTICAL);
+                    ? new WallCollisionEvent(txLeft, p, Wall.VERTICAL)
+                    : new WallCollisionEvent(minTy, p, Wall.HORIZONTAL);
+        }
+        if (minTy < txRight) {
+            return new WallCollisionEvent(minTy, p, Wall.HORIZONTAL);
         }
         // Chequeo posicion en y para ver si cae en la apertura del canal
-        if (minTy < txRight) {
-            return new WallCollisionEvent(minTy, p, Wall.VERTICAL);
-        }
-        double yAfterTxRight = p.getYAfterDt(txRight);
-        double yChannelBelow = channelBelow;
-        double yChannelAbove = channelBelow + L;
-        if ((yAfterTxRight + p.getR()) > yChannelAbove || (yAfterTxRight - p.getR()) < yChannelBelow) {
+        double txCenterToEnclosure = p.timeToXCoord(ENCLOSURE_LONG + p.getR());
+        double yAfterTxCenterToEnclosure = p.getYAfterDt(txCenterToEnclosure);
+        if ((yAfterTxCenterToEnclosure + p.getR()) > channelAbove
+                || (yAfterTxCenterToEnclosure - p.getR()) < channelBelow) {
             // No cae en el canal
-            return new WallCollisionEvent(txRight, p, Wall.HORIZONTAL);
+            return new WallCollisionEvent(txRight, p, Wall.VERTICAL);
         }
         // Hay que chequear el tiempo en el que llega a cada una de las paredes del
         // canal
-        final double tyChannelMin = Math.min(p.timeToYCoord(yChannelAbove),
-                p.timeToYCoord(yChannelBelow));
-        final double txChannel = p.timeToXCoord(2 * ENCLOSURE_LONG);
+        final Particle pAfterEnteringChannel = new Particle(ENCLOSURE_LONG, yAfterTxCenterToEnclosure,
+                Math.atan2(p.getVy(), p.getVx()));
+        final double tyChannelMin = Math.min(pAfterEnteringChannel.timeToYCoord(channelAbove),
+                pAfterEnteringChannel.timeToYCoord(channelBelow));
+        final double txChannel = pAfterEnteringChannel.timeToXCoord(2 * ENCLOSURE_LONG);
         return txChannel < tyChannelMin
-                ? new WallCollisionEvent(txChannel, p, Wall.HORIZONTAL)
-                : new WallCollisionEvent(tyChannelMin, p, Wall.VERTICAL);
+                ? new WallCollisionEvent(txCenterToEnclosure + txChannel, p, Wall.VERTICAL)
+                : new WallCollisionEvent(txCenterToEnclosure + tyChannelMin, p, Wall.HORIZONTAL);
     }
 
     private Event timeToWallCollisionFromChannel(final Particle p) {
         final double txRight = p.timeToXCoord(2 * ENCLOSURE_LONG);
-        final double txLeft = p.timeToXCoord(ENCLOSURE_LONG);
-        final double tyUp = p.timeToYCoord(ENCLOSURE_LONG + L);
-        final double tyDown = p.timeToYCoord(ENCLOSURE_LONG);
+        final double tyUp = p.timeToYCoord(channelAbove);
+        final double tyDown = p.timeToYCoord(channelBelow);
+        final double minTy = Math.min(tyUp, tyDown);
 
-        if (txLeft == Double.POSITIVE_INFINITY) {
+        if (txRight != Double.POSITIVE_INFINITY) {
             // Nunca puedo ir en direccion a la box
-            double minTy = Math.min(tyUp, tyDown);
             return txRight < minTy
-                    ? new WallCollisionEvent(txRight, p, Wall.HORIZONTAL)
-                    : new WallCollisionEvent(minTy, p, Wall.VERTICAL);
+                    ? new WallCollisionEvent(txRight, p, Wall.VERTICAL)
+                    : new WallCollisionEvent(minTy, p, Wall.HORIZONTAL);
         }
-        // Chequeo posicion en y para ver si cae en
-        double yAfterTxLeft = p.getYAfterDt(txLeft);
-        double yChannelBelow = channelBelow;
-        double yChannelAbove = channelBelow + L;
-        if ((yAfterTxLeft + p.getR()) > yChannelAbove || (yAfterTxLeft - p.getR()) < yChannelBelow) {
-            // Se sale del canal
-            double minTy = Math.min(tyUp, tyDown);
-            return txLeft < minTy
-                    ? new WallCollisionEvent(txLeft, p, Wall.HORIZONTAL)
-                    : new WallCollisionEvent(minTy, p, Wall.VERTICAL);
+        // Chequeo posicion en y para ver si sale del canal
+        double txCenterToEnclosure = p.timeToXCoord(ENCLOSURE_LONG - p.getR());
+        double yAfterTxCenterToEnclosure = p.getYAfterDt(txCenterToEnclosure);
+        if ((yAfterTxCenterToEnclosure + p.getR()) > channelAbove
+                || (yAfterTxCenterToEnclosure - p.getR()) < channelBelow) {
+            // Todavia no sale del canal
+            return new WallCollisionEvent(minTy, p, Wall.HORIZONTAL);
         }
-        // Hay que chequear el tiempo en el que llega a cada una de las paredes del
-        // canal
-        final double tyChannelMin = Math.min(p.timeToYCoord(yChannelAbove),
-                p.timeToYCoord(yChannelBelow));
-        final double txChannel = p.timeToXCoord(2 * ENCLOSURE_LONG);
+        // Sale del canal
+        final Particle pAfterLeavingChannel = new Particle(ENCLOSURE_LONG, yAfterTxCenterToEnclosure,
+                Math.atan2(p.getVy(), p.getVx()));
+        final double tyChannelMin = Math.min(pAfterLeavingChannel.timeToYCoord(0),
+                pAfterLeavingChannel.timeToYCoord(ENCLOSURE_LONG));
+        final double txChannel = pAfterLeavingChannel.timeToXCoord(0);
         return txChannel < tyChannelMin
-                ? new WallCollisionEvent(txChannel, p, Wall.HORIZONTAL)
-                : new WallCollisionEvent(tyChannelMin, p, Wall.VERTICAL);
+                ? new WallCollisionEvent(txCenterToEnclosure + txChannel, p, Wall.VERTICAL)
+                : new WallCollisionEvent(txCenterToEnclosure + tyChannelMin, p, Wall.HORIZONTAL);
     }
 
     private Event timeToWallCollision(final Particle p) {
         if (inBox(p)) {
-            System.out.println("Box");
             return timeToWallCollisionFromBox(p);
         }
         if (inChannel(p)) {
-            System.out.println("Channel");
             return timeToWallCollisionFromChannel(p);
         }
         throw new IllegalStateException("Particle is out of bounds. x: " + p.getX() + ", y: " + p.getY() + ", vx: "
