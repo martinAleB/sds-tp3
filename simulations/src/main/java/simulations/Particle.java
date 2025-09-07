@@ -32,17 +32,17 @@ public class Particle {
     }
 
     public double timeToXCoord(double xcoord) {
-        if (vx > 0 && xcoord > (this.x + r))
+        if (vx > 0 && xcoord >= (this.x + r))
             return (xcoord - (this.x + r)) / vx;
-        if (vx < 0 && xcoord < (this.x - r))
+        if (vx < 0 && xcoord <= (this.x - r))
             return (xcoord - (this.x - r)) / vx;
         return Double.POSITIVE_INFINITY;
     }
 
     public double timeToYCoord(double ycoord) {
-        if (vy > 0 && ycoord > (this.y + r))
+        if (vy > 0 && ycoord >= (this.y + r))
             return (ycoord - (this.y + r)) / vy;
-        if (vy < 0 && ycoord < (this.y - r))
+        if (vy < 0 && ycoord <= (this.y - r))
             return (ycoord - (this.y - r)) / vy;
         return Double.POSITIVE_INFINITY;
     }
@@ -118,6 +118,14 @@ public class Particle {
         return y;
     }
 
+    public void setX(double x) {
+        this.x = x;
+    }
+
+    public void setY(double y) {
+        this.y = y;
+    }
+
     public void invertVx() {
         setVx(-vx);
     }
@@ -136,7 +144,7 @@ public class Particle {
 
     @Override
     public String toString() {
-        return String.format("X = %f, Y = %f, vx = %f, vy = %f", x, y, vx, vy);
+        return String.format("Particle[X = %f, Y = %f, vx = %f, vy = %f]", x, y, vx, vy);
     }
 
     @Override

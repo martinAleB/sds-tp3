@@ -51,6 +51,8 @@ public class App {
                 for (Event event : events) {
                     event.processEvent();
                 }
+                // Guard against FP drift pushing particles slightly out of bounds
+                grid.clampAll();
                 tAccum += dt;
                 writer.write(String.valueOf(tAccum));
                 writer.newLine();

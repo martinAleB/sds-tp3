@@ -9,7 +9,7 @@ public class ParticleCollisionEvent extends Event {
     }
 
     public Particle getP() {
-        return this.getP();
+        return super.getParticle();
     }
 
     public Particle getOther() {
@@ -21,21 +21,39 @@ public class ParticleCollisionEvent extends Event {
         Particle p = this.getParticle();
         Particle q = this.getOther();
 
-        // Vectores relativos
+        // Δr y Δv (en el instante del choque)
         double dx = q.getX() - p.getX();
         double dy = q.getY() - p.getY();
         double dvx = q.getVx() - p.getVx();
         double dvy = q.getVy() - p.getVy();
 
-        // Escalares útiles
-        double rv = dx * dvx + dy * dvy; // Δr · Δv
-        double mTotal = p.getM() + q.getM(); // m1 + m2
-        double J = (2 * p.getM() * q.getM() * rv) / (mTotal); // Impulso escalar
+        // Productos escalares
+        double rv = dx * dvx + dy * dvy; // Δv · Δr
 
-        // Actualizar velocidades
-        p.setVx(p.getVx() + J * dx / (p.getM() * Math.sqrt(dx * dx + dy * dy)));
-        p.setVy(p.getVy() + J * dy / (p.getM() * Math.sqrt(dx * dx + dy * dy)));
-        q.setVx(q.getVx() - J * dx / (q.getM() * Math.sqrt(dx * dx + dy * dy)));
-        q.setVy(q.getVy() - J * dy / (q.getM() * Math.sqrt(dx * dx + dy * dy)));
+        // Masas
+        double mi = p.getM();
+        double mj = q.getM();
+
+        // σ = Ri + Rj (en el contacto también vale |Δr| ≈ σ)
+        double sigma = (p.getR() + q.getR());
+
+        // Evitar divisiones por cero si hubiera solapamiento extremo o datos
+        // degenerados
+        if (sigma == 0.0)
+            return;
+
+        // J escalar (diapo)
+        double J = (2.0 * mi * mj * rv) / (sigma * (mi + mj));
+
+        // Componentes del impulso
+        double Jx = J * dx / sigma;
+        double Jy = J * dy / sigma;
+
+        // Actualización de velocidades (antes -> después)
+        p.setVx(p.getVx() + Jx / mi);
+        p.setVy(p.getVy() + Jy / mi);
+
+        q.setVx(q.getVx() - Jx / mj);
+        q.setVy(q.getVy() - Jy / mj);
     }
 }

@@ -29,4 +29,9 @@ public abstract class Event implements Comparable<Event> {
     public int compareTo(Event other) {
         return Double.compare(this.time, other.time);
     }
+
+    @Override
+    public String toString() {
+        return String.format("Event[type=%s, time=%.5f, particle=%s]", eventType, time, particle);
+    }
 }

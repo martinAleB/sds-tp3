@@ -39,13 +39,15 @@ public class Grid implements Iterable<Particle> {
     }
 
     private boolean inBox(final Particle p) {
-        return (p.getX() >= 0 && p.getX() < ENCLOSURE_LONG)
-                && (p.getY() >= 0 && p.getY() < ENCLOSURE_LONG);
+        final double EPS = 1e-9;
+        return (p.getX() >= 0 - EPS && p.getX() <= ENCLOSURE_LONG + EPS)
+                && (p.getY() >= 0 - EPS && p.getY() <= ENCLOSURE_LONG + EPS);
     }
 
     private boolean inChannel(final Particle p) {
-        return p.getX() >= ENCLOSURE_LONG && p.getX() < 2 * ENCLOSURE_LONG
-                && p.getY() > channelBelow && p.getY() < channelBelow + L;
+        final double EPS = 1e-12;
+        return p.getX() >= ENCLOSURE_LONG - EPS && p.getX() <= 2 * ENCLOSURE_LONG + EPS
+                && p.getY() >= channelBelow - EPS && p.getY() <= channelBelow + L + EPS;
     }
 
     private Event timeToWallCollisionFromBox(final Particle p) {
@@ -74,7 +76,13 @@ public class Grid implements Iterable<Particle> {
         }
         // Hay que chequear el tiempo en el que llega a cada una de las paredes del
         // canal
-        final Particle pAfterEnteringChannel = new Particle(ENCLOSURE_LONG, yAfterTxCenterToEnclosure,
+        final double vMagEnter = Math.hypot(p.getVx(), p.getVy());
+        final Particle pAfterEnteringChannel = new Particle(
+                p.getR(),
+                p.getM(),
+                vMagEnter,
+                ENCLOSURE_LONG,
+                yAfterTxCenterToEnclosure,
                 Math.atan2(p.getVy(), p.getVx()));
         final double tyChannelMin = Math.min(pAfterEnteringChannel.timeToYCoord(channelAbove),
                 pAfterEnteringChannel.timeToYCoord(channelBelow));
@@ -105,7 +113,13 @@ public class Grid implements Iterable<Particle> {
             return new WallCollisionEvent(minTy, p, Wall.HORIZONTAL);
         }
         // Sale del canal
-        final Particle pAfterLeavingChannel = new Particle(ENCLOSURE_LONG, yAfterTxCenterToEnclosure,
+        final double vMagLeave = Math.hypot(p.getVx(), p.getVy());
+        final Particle pAfterLeavingChannel = new Particle(
+                p.getR(),
+                p.getM(),
+                vMagLeave,
+                ENCLOSURE_LONG,
+                yAfterTxCenterToEnclosure,
                 Math.atan2(p.getVy(), p.getVx()));
         final double tyChannelMin = Math.min(pAfterLeavingChannel.timeToYCoord(0),
                 pAfterLeavingChannel.timeToYCoord(ENCLOSURE_LONG));
@@ -127,20 +141,32 @@ public class Grid implements Iterable<Particle> {
     }
 
     public List<Event> getNextEvents() {
+        final double EPS = 1e-12;
         PriorityQueue<Event> pq = new PriorityQueue<>();
         Map<Particle, Map<Particle, Boolean>> calculatedCollision = new HashMap<>();
         for (Particle p : this) {
             calculatedCollision.putIfAbsent(p, new HashMap<>());
-            pq.add(timeToWallCollision(p));
+            Event wallCollisionEvent = timeToWallCollision(p);
+            pq.add(wallCollisionEvent);
             for (Particle other : this) {
                 if (p != other && !calculatedCollision.getOrDefault(other, Map.of()).getOrDefault(p, false)) {
                     calculatedCollision.get(p).put(other, true);
-                    pq.add(p.timeToCollision(other));
+                    Event particleCollisionEvent = p.timeToCollision(other);
+                    pq.add(particleCollisionEvent);
                 }
             }
         }
-        List<Event> nextEvents = List.of(pq.poll());
-        while (!pq.isEmpty() && pq.peek().getTime() == nextEvents.get(0).getTime()) {
+        List<Event> nextEvents = new ArrayList<>();
+        if (pq.isEmpty())
+            return nextEvents;
+        Event first = pq.poll();
+        nextEvents.add(first);
+        double t0 = first.getTime();
+        while (!pq.isEmpty()) {
+            double ti = pq.peek().getTime();
+            double scale = Math.max(1.0, Math.max(Math.abs(t0), Math.abs(ti)));
+            if (Math.abs(ti - t0) > EPS * scale)
+                break;
             nextEvents.add(pq.poll());
         }
         return nextEvents;
@@ -152,8 +178,57 @@ public class Grid implements Iterable<Particle> {
         }
     }
 
+    // Clamp positions into valid domain after events to avoid drift by FP errors
+    public void clampAll() {
+        final double EPS = 1e-12;
+        for (Particle p : this) {
+            // Clamp X globally to enclosure + channel span
+            double x = p.getX();
+            if (x < p.getR() - EPS)
+                x = p.getR();
+            if (x > 2 * ENCLOSURE_LONG - p.getR() + EPS)
+                x = 2 * ENCLOSURE_LONG - p.getR();
+
+            // Decide Y bounds by region (box vs channel) using X
+            double y = p.getY();
+            if (x < ENCLOSURE_LONG) {
+                // Box
+                double ymin = p.getR();
+                double ymax = ENCLOSURE_LONG - p.getR();
+                if (y < ymin - EPS)
+                    y = ymin;
+                if (y > ymax + EPS)
+                    y = ymax;
+            } else if (x < 2 * ENCLOSURE_LONG) {
+                // Channel
+                double ymin = channelBelow + p.getR();
+                double ymax = channelAbove - p.getR();
+                if (y < ymin - EPS)
+                    y = ymin;
+                if (y > ymax + EPS)
+                    y = ymax;
+            } else {
+                // Far right numerical drift: clamp to boundary
+                double ymin = p.getR();
+                double ymax = ENCLOSURE_LONG - p.getR();
+                if (y < ymin - EPS)
+                    y = ymin;
+                if (y > ymax + EPS)
+                    y = ymax;
+            }
+
+            p.setX(x);
+            p.setY(y);
+        }
+    }
+
     @Override
     public Iterator<Particle> iterator() {
         return particles.iterator();
+    }
+
+    @Override
+    public String toString() {
+        return particles.toString();
     }
 }
