@@ -176,8 +176,8 @@ public class Grid implements Iterable<Particle> {
         }
     }
 
-    public int getParticlesInBorderCount() {
-        int count = 0;
+    public List<Particle> getParticlesInBorder() {
+        List<Particle> borderParticles = new ArrayList<>();
         for (Particle p : this) {
             double x = p.getX();
             double y = p.getY();
@@ -187,9 +187,12 @@ public class Grid implements Iterable<Particle> {
 
             if (inBox(p)) {
                 // Box walls: left, bottom, top
-                if (x - r <= 0 + EPS) onBorder = true; // left wall
-                if (!onBorder && (y - r <= 0 + EPS)) onBorder = true; // bottom wall
-                if (!onBorder && (y + r >= ENCLOSURE_LONG - EPS)) onBorder = true; // top wall
+                if (x - r <= 0 + EPS)
+                    onBorder = true; // left wall
+                if (!onBorder && (y - r <= 0 + EPS))
+                    onBorder = true; // bottom wall
+                if (!onBorder && (y + r >= ENCLOSURE_LONG - EPS))
+                    onBorder = true; // top wall
 
                 // Right box wall excluding channel opening
                 if (!onBorder && (x + r >= ENCLOSURE_LONG - EPS)) {
@@ -200,14 +203,18 @@ public class Grid implements Iterable<Particle> {
                 }
             } else if (inChannel(p)) {
                 // Channel walls: bottom (channelBelow), top (channelAbove), and far right wall
-                if (y - r <= channelBelow + EPS) onBorder = true; // bottom channel wall
-                if (!onBorder && (y + r >= channelAbove - EPS)) onBorder = true; // top channel wall
-                if (!onBorder && (x + r >= 2 * ENCLOSURE_LONG - EPS)) onBorder = true; // rightmost wall
+                if (y - r <= channelBelow + EPS)
+                    onBorder = true; // bottom channel wall
+                if (!onBorder && (y + r >= channelAbove - EPS))
+                    onBorder = true; // top channel wall
+                if (!onBorder && (x + r >= 2 * ENCLOSURE_LONG - EPS))
+                    onBorder = true; // rightmost wall
             }
 
-            if (onBorder) count++;
+            if (onBorder)
+                borderParticles.add(p);
         }
-        return count;
+        return borderParticles;
     }
 
     // Clamp positions into valid domain after events to avoid drift by FP errors

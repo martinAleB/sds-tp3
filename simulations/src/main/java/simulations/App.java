@@ -38,28 +38,34 @@ public class App {
         final Path dynamicFile = simulationPath.resolve("dynamic.txt");
         double tAccum = 0;
         try (var writer = Files.newBufferedWriter(dynamicFile)) {
-            int countInBorder = grid.getParticlesInBorderCount();
-            writer.write(String.format("%f %d", tAccum, countInBorder));
+            List<Particle> borderParticles = grid.getParticlesInBorder();
+            writer.write(String.valueOf(tAccum));
+            for (Particle p : borderParticles) {
+                writer.write(" " + p.getId());
+            }
             writer.newLine();
             for (Particle p : grid) {
                 writer.write(String.format("%f %f %f %f", p.getX(), p.getY(), p.getVx(), p.getVy()));
                 writer.newLine();
             }
             for (int i = 1; i < T; i++) {
-                int wallCollisionEvents = 0;
+                borderParticles.clear();
                 List<Event> events = grid.getNextEvents();
                 double dt = events.get(0).getTime();
                 grid.move(dt);
                 for (Event event : events) {
                     if (EventType.WALL_COLLISION.equals(event.getEventType())) {
-                        wallCollisionEvents++;
+                        borderParticles.add(event.getParticle());
                     }
                     event.processEvent();
                 }
                 // Guard against FP drift pushing particles slightly out of bounds
                 grid.clampAll();
                 tAccum += dt;
-                writer.write(String.format("%f %d", tAccum, wallCollisionEvents));
+                writer.write(String.valueOf(tAccum));
+                for (Particle p : borderParticles) {
+                    writer.write(" " + p.getId());
+                }
                 writer.newLine();
                 for (Particle p : grid) {
                     writer.write(String.format("%f %f %f %f", p.getX(), p.getY(), p.getVx(), p.getVy()));

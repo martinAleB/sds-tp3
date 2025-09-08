@@ -1,22 +1,21 @@
 package simulations;
 
 public class Particle {
+    private static int idCounter = 1;
+
     public static final double R_DEFAULT = 0.0015;
     public static final double M_DEFAULT = 1;
     public static final double V_DEFAULT = 0.01;
 
+    private int id;
     private double r, m, vx, vy, x, y;
 
     public Particle(double x, double y, double theta) {
-        this.r = R_DEFAULT;
-        this.m = M_DEFAULT;
-        this.x = x;
-        this.y = y;
-        this.vx = V_DEFAULT * Math.cos(theta);
-        this.vy = V_DEFAULT * Math.sin(theta);
+        this(R_DEFAULT, M_DEFAULT, V_DEFAULT, x, y, theta);
     }
 
     public Particle(double r, double m, double v, double x, double y, double theta) {
+        this.id = idCounter++;
         this.r = r;
         this.m = m;
         this.x = x;
@@ -94,6 +93,10 @@ public class Particle {
         y = getYAfterDt(dt);
     }
 
+    public int getId() {
+        return id;
+    }
+
     public double getR() {
         return r;
     }
@@ -144,7 +147,7 @@ public class Particle {
 
     @Override
     public String toString() {
-        return String.format("Particle[X = %f, Y = %f, vx = %f, vy = %f]", x, y, vx, vy);
+        return String.format("Particle[id = %d, X = %f, Y = %f, vx = %f, vy = %f]", id, x, y, vx, vy);
     }
 
     @Override
