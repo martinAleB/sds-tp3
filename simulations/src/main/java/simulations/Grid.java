@@ -9,6 +9,7 @@ import java.util.PriorityQueue;
 
 public class Grid implements Iterable<Particle> {
     private static final double ENCLOSURE_LONG = 0.09;
+    private static final double EPS = 1e-12;
 
     private final int N;
     private final double L;
@@ -39,13 +40,11 @@ public class Grid implements Iterable<Particle> {
     }
 
     private boolean inBox(final Particle p) {
-        final double EPS = 1e-9;
         return (p.getX() >= 0 - EPS && p.getX() <= ENCLOSURE_LONG + EPS)
                 && (p.getY() >= 0 - EPS && p.getY() <= ENCLOSURE_LONG + EPS);
     }
 
     private boolean inChannel(final Particle p) {
-        final double EPS = 1e-12;
         return p.getX() >= ENCLOSURE_LONG - EPS && p.getX() <= 2 * ENCLOSURE_LONG + EPS
                 && p.getY() >= channelBelow - EPS && p.getY() <= channelBelow + L + EPS;
     }
@@ -141,7 +140,6 @@ public class Grid implements Iterable<Particle> {
     }
 
     public List<Event> getNextEvents() {
-        final double EPS = 1e-12;
         PriorityQueue<Event> pq = new PriorityQueue<>();
         Map<Particle, Map<Particle, Boolean>> calculatedCollision = new HashMap<>();
         for (Particle p : this) {
@@ -178,9 +176,42 @@ public class Grid implements Iterable<Particle> {
         }
     }
 
+    public int getParticlesInBorderCount() {
+        int count = 0;
+        for (Particle p : this) {
+            double x = p.getX();
+            double y = p.getY();
+            double r = p.getR();
+
+            boolean onBorder = false;
+
+            if (inBox(p)) {
+                // Box walls: left, bottom, top
+                if (x - r <= 0 + EPS) onBorder = true; // left wall
+                if (!onBorder && (y - r <= 0 + EPS)) onBorder = true; // bottom wall
+                if (!onBorder && (y + r >= ENCLOSURE_LONG - EPS)) onBorder = true; // top wall
+
+                // Right box wall excluding channel opening
+                if (!onBorder && (x + r >= ENCLOSURE_LONG - EPS)) {
+                    boolean fullyInsideOpening = (y - r >= channelBelow - EPS) && (y + r <= channelAbove + EPS);
+                    if (!fullyInsideOpening) {
+                        onBorder = true;
+                    }
+                }
+            } else if (inChannel(p)) {
+                // Channel walls: bottom (channelBelow), top (channelAbove), and far right wall
+                if (y - r <= channelBelow + EPS) onBorder = true; // bottom channel wall
+                if (!onBorder && (y + r >= channelAbove - EPS)) onBorder = true; // top channel wall
+                if (!onBorder && (x + r >= 2 * ENCLOSURE_LONG - EPS)) onBorder = true; // rightmost wall
+            }
+
+            if (onBorder) count++;
+        }
+        return count;
+    }
+
     // Clamp positions into valid domain after events to avoid drift by FP errors
     public void clampAll() {
-        final double EPS = 1e-12;
         for (Particle p : this) {
             // Clamp X globally to enclosure + channel span
             double x = p.getX();
