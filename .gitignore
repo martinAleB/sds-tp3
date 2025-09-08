@@ -29,3 +29,5 @@ data
 
 # IDE
 .vscode
+
+.Ds_Store
