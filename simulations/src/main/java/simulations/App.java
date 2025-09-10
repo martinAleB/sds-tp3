@@ -7,7 +7,7 @@ import java.util.List;
 
 public class App {
     private static final String SIMULATIONS_FOLDER = "simulations";
-    private static final String BASE_PATH = "../data";
+    private static final String BASE_PATH = "data";
 
     public static void main(String[] args) throws IOException {
         final String simulationName = args[0];
