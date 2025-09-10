@@ -54,7 +54,8 @@ public class App {
                 double dt = events.get(0).getTime();
                 grid.move(dt);
                 for (Event event : events) {
-                    if (EventType.WALL_COLLISION.equals(event.getEventType())) {
+                    if (EventType.WALL_COLLISION.equals(event.getEventType())
+                            || EventType.CORNER_COLLISION.equals(event.getEventType())) {
                         borderParticles.add(event.getParticle());
                     }
                     event.processEvent();

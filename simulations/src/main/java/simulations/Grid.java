@@ -65,6 +65,17 @@ public class Grid implements Iterable<Particle> {
         if (minTy < txRight) {
             return new WallCollisionEvent(minTy, p, Wall.HORIZONTAL);
         }
+        // Antes de decidir, chequeo si en txRight estoy tocando un vértice de la entrada del canal
+        double yAtTxRight = p.getYAfterDt(txRight);
+        double topAtTxRight = yAtTxRight + p.getR();
+        double bottomAtTxRight = yAtTxRight - p.getR();
+        boolean verticalInside = Math.abs(p.getXAfterDt(txRight) - ENCLOSURE_LONG) <= p.getR() + EPS;
+        boolean belowInside = (channelBelow >= bottomAtTxRight - EPS) && (channelBelow <= topAtTxRight + EPS);
+        boolean aboveInside = (channelAbove >= bottomAtTxRight - EPS) && (channelAbove <= topAtTxRight + EPS);
+        if (verticalInside && (belowInside || aboveInside)) {
+            double cy = belowInside ? channelBelow : channelAbove;
+            return new CornerCollisionEvent(txRight, p, ENCLOSURE_LONG, cy);
+        }
         // Chequeo posicion en y para ver si cae en la apertura del canal
         double txCenterToEnclosure = p.timeToXCoord(ENCLOSURE_LONG + p.getR());
         double yAfterTxCenterToEnclosure = p.getYAfterDt(txCenterToEnclosure);
