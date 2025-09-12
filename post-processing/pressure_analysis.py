@@ -6,7 +6,6 @@ import csv
 
 ENC = 0.09      # lado del recinto izquierdo (m)
 EPS = 2e-5      # tolerancia espacial para "estar tocando pared" (m)
-DT_BIN = 0.01   # respaldo si hubiera Δt no positivos
 
 def read_static(static_path: Path):
     with static_path.open("r") as f:
@@ -90,51 +89,114 @@ def read_collision_events(dynamic_path: Path, N: int):
             np.array(VX, float),
             np.array(VY, float))
 
+# def compute_pressures_from_events(times_ev, X, Y, VX, VY, N, L, R, M, out_csv: Path | None = None):
+#     # Longitudes efectivas de paredes (2D)
+#     len_left  = 4*ENC - L
+#     len_right = 2*ENC + L
+
+#     # Agrupar por tiempo
+#     unique_t, sumL, sumR = [], [], []
+#     i, E = 0, len(times_ev)
+#     while i < E:
+#         t = times_ev[i]
+#         accL, accR = 0.0, 0.0
+#         while i < E and np.isclose(times_ev[i], t):
+#             x, y, vx, vy = X[i], Y[i], VX[i], VY[i]
+#             # Detectar paredes tocadas
+#             hits = classify_wall_and_recinto(x, y, vx, vy, L, R)
+#             for orient, rec in hits:
+#                 delta_p = 2.0 * M * (abs(vx) if orient == 'V' else abs(vy))
+#                 if rec == 'L':
+#                     accL += delta_p
+#                 else:
+#                     accR += delta_p
+#             i += 1
+#         unique_t.append(t)
+#         sumL.append(accL)
+#         sumR.append(accR)
+
+#     unique_t = np.array(unique_t)
+#     sumL = np.array(sumL)
+#     sumR = np.array(sumR)
+
+#     # Calcular presiones en cada intervalo [t_i, t_{i+1})
+#     #dts = np.diff(unique_t)
+#     dts = 1
+#     P_left  = sumL[:-1] / (dts * len_left)
+#     P_right = sumR[:-1] / (dts * len_right)
+#     t_mid   = 0.5 * (unique_t[:-1] + unique_t[1:])
+
+#     # Guardar CSV si se pide
+#     if out_csv is not None:
+#         with out_csv.open("w", newline="") as f:
+#             w = csv.writer(f)
+#             w.writerow(["t", "P_left", "P_right"])
+#             for i in range(len(t_mid)):
+#                 w.writerow([f"{t_mid[i]:.6f}", f"{P_left[i]:.8e}", f"{P_right[i]:.8e}"])
+
+#     return t_mid, P_left, P_right
+
 def compute_pressures_from_events(times_ev, X, Y, VX, VY, N, L, R, M, out_csv: Path | None = None):
+    """
+    Binning temporal con ΔT fijo (estimado automáticamente):
+      - Define bins uniformes en [t_min, t_max] con ancho dt_bin.
+      - Suma impulsos de choques dentro de cada bin.
+      - P_left/right = impulso_acum / (dt_bin * longitud_de_pared).
+    """
     # Longitudes efectivas de paredes (2D)
     len_left  = 4*ENC - L
     len_right = 2*ENC + L
 
-    # Agrupar por tiempo
-    unique_t, sumL, sumR = [], [], []
-    i, E = 0, len(times_ev)
-    while i < E:
-        t = times_ev[i]
-        accL, accR = 0.0, 0.0
-        while i < E and np.isclose(times_ev[i], t):
-            x, y, vx, vy = X[i], Y[i], VX[i], VY[i]
-            # Detectar paredes tocadas
-            hits = classify_wall_and_recinto(x, y, vx, vy, L, R)
-            for orient, rec in hits:
-                delta_p = 2.0 * M * (abs(vx) if orient == 'V' else abs(vy))
-                if rec == 'L':
-                    accL += delta_p
-                else:
-                    accR += delta_p
-            i += 1
-        unique_t.append(t)
-        sumL.append(accL)
-        sumR.append(accR)
+    if len(times_ev) == 0:
+        raise ValueError("No hay eventos de pared.")
 
-    unique_t = np.array(unique_t)
-    sumL = np.array(sumL)
-    sumR = np.array(sumR)
+    # Elegir dt_bin a partir de la mediana de separaciones entre tiempos únicos
+    # tu = np.unique(times_ev)
+    # if len(tu) >= 3:
+    #     med = float(np.median(np.diff(tu)))
+    #     print(med)
+    #     dt_bin = max(1e-4, min(1, 50.0 * med))  # 50×mediana, limitado a [1e-4, 1] s
+    #     #dt_bin = 1
+    # else:
+    #     dt_bin = 0.1  # fallback razonable
+    dt_bin = 1
 
-    # Calcular presiones en cada intervalo [t_i, t_{i+1})
-    dts = np.diff(unique_t)
-    P_left  = sumL[:-1] / (dts * len_left)
-    P_right = sumR[:-1] / (dts * len_right)
-    t_mid   = 0.5 * (unique_t[:-1] + unique_t[1:])
+    t0 = float(times_ev.min())
+    t1 = float(times_ev.max())
+    nbins = max(1, int(np.ceil((t1 - t0) / dt_bin)))
+    edges = t0 + np.arange(nbins + 1) * dt_bin
+
+    accL = np.zeros(nbins)
+    accR = np.zeros(nbins)
+
+    # Acumular impulsos por bin
+    for x, y, vx, vy, te in zip(X, Y, VX, VY, times_ev):
+        b = int((te - t0) // dt_bin)
+        if b < 0 or b >= nbins:
+            continue
+        hits = classify_wall_and_recinto(x, y, vx, vy, L, R)
+        for orient, rec in hits:
+            delta_p = 2.0 * M * (abs(vx) if orient == 'V' else abs(vy))
+            if rec == 'L':
+                accL[b] += delta_p
+            else:
+                accR[b] += delta_p
+
+    # Presiones promediadas por bin
+    P_left  = accL / (dt_bin * len_left)
+    P_right = accR / (dt_bin * len_right)
+    t_mid   = 0.5 * (edges[:-1] + edges[1:])
 
     # Guardar CSV si se pide
     if out_csv is not None:
         with out_csv.open("w", newline="") as f:
             w = csv.writer(f)
             w.writerow(["t", "P_left", "P_right"])
-            for i in range(len(t_mid)):
-                w.writerow([f"{t_mid[i]:.6f}", f"{P_left[i]:.8e}", f"{P_right[i]:.8e}"])
+            for tc, pl, pr in zip(t_mid, P_left, P_right):
+                w.writerow([f"{tc:.6f}", f"{pl:.8e}", f"{pr:.8e}"])
 
     return t_mid, P_left, P_right
+
 
 def classify_wall_and_recinto(x, y, vx, vy, L, R):
     y0 = (ENC - L) / 2.0
