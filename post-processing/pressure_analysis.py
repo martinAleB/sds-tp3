@@ -159,7 +159,7 @@ def compute_pressures_from_events(times_ev, X, Y, VX, VY, N, L, R, M, out_csv: P
     #     #dt_bin = 1
     # else:
     #     dt_bin = 0.1  # fallback razonable
-    dt_bin = 1
+    dt_bin = 2
 
     t0 = float(times_ev.min())
     t1 = float(times_ev.max())
@@ -203,40 +203,31 @@ def classify_wall_and_recinto(x, y, vx, vy, L, R):
     y1 = y0 + L
     hits = []
 
-    # --- VERTICALES ---
-    # x=0 (pared izquierda de la caja)
+    # --- VERTICALES (igual que antes) ---
     if abs(x - R) <= EPS and vx > 0:
         hits.append(('V', 'L'))
-
-    # x=ENC (pared interna del cuadrado, fuera de la abertura)
     if abs(x - (ENC - R)) <= EPS:
         if y <= (y0 - R + EPS) or y >= (y1 + R - EPS):
             if vx < 0:
                 hits.append(('V', 'L'))
-
-    # x=2*ENC (pared derecha del canal)
     if abs(x - (2*ENC - R)) <= EPS and vx < 0:
         hits.append(('V', 'R'))
 
     # --- HORIZONTALES ---
-    # y=0 (piso global)
-    if abs(y - R) <= EPS and vy > 0:
-        hits.append(('H', 'L' if x < ENC else 'R'))
-
-    # y=ENC (techo global)
-    if abs(y - (ENC - R)) <= EPS and vy < 0:
-        hits.append(('H', 'L' if x < ENC else 'R'))
-
-    # piso canal
-    if x >= ENC and abs(y - (y0 + R)) <= EPS and vy > 0:
-        hits.append(('H', 'R'))
-
-    # techo canal
-    if x >= ENC and abs(y - (y1 - R)) <= EPS and vy < 0:
-        hits.append(('H', 'R'))
+    if x < ENC:
+        # Recinto izquierdo → solo piso/techo globales
+        if abs(y - R) <= EPS and vy > 0:
+            hits.append(('H', 'L'))
+        if abs(y - (ENC - R)) <= EPS and vy < 0:
+            hits.append(('H', 'L'))
+    else:
+        # Canal → solo piso/techo canal
+        if abs(y - (y0 + R)) <= EPS and vy > 0:
+            hits.append(('H', 'R'))
+        if abs(y - (y1 - R)) <= EPS and vy < 0:
+            hits.append(('H', 'R'))
 
     return hits
-
 
 def main(folder: Path):
     static_path = folder / "static.txt"
@@ -251,6 +242,9 @@ def main(folder: Path):
 
     # Calcular presiones
     t, P_L, P_R = compute_pressures_from_events(times_ev, X, Y, VX, VY, N, L, R, M, folder / "pressures.csv")
+
+    # Descartar caso
+    t, P_L, P_R = t[:-1], P_L[:-1], P_R[:-1]
 
     # Graficar ambas presiones en un solo plot
     plt.figure(figsize=(10, 5))
