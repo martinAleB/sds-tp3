@@ -37,6 +37,9 @@ public class Grid implements Iterable<Particle> {
             double theta = Math.random() * 2 * Math.PI;
             particles.add(new Particle(x, y, theta));
         }
+        // Agrego los obstaculos
+        particles.add(new Particle(ENCLOSURE_LONG, channelBelow));
+        particles.add(new Particle(ENCLOSURE_LONG, channelAbove));
     }
 
     private boolean inBox(final Particle p) {

@@ -9,6 +9,7 @@ public class Particle {
 
     private int id;
     private double r, m, vx, vy, x, y;
+    private boolean fixed = false;
 
     public Particle(double x, double y, double theta) {
         this(R_DEFAULT, M_DEFAULT, V_DEFAULT, x, y, theta);
@@ -22,6 +23,12 @@ public class Particle {
         this.y = y;
         this.vx = v * Math.cos(theta);
         this.vy = v * Math.sin(theta);
+    }
+
+    public Particle(double x, double y) {
+        // Para los obstaculos
+        this(0, 0, 0, x, y, 0);
+        this.fixed = true;
     }
 
     public boolean isInside(double x, double y) {
@@ -91,6 +98,10 @@ public class Particle {
     public void move(double dt) {
         x = getXAfterDt(dt);
         y = getYAfterDt(dt);
+    }
+
+    public boolean isFixed() {
+        return fixed;
     }
 
     public int getId() {

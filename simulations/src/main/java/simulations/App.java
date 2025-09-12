@@ -1,15 +1,18 @@
 package simulations;
 
 import java.io.IOException;
+import java.io.BufferedWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
 
 public class App {
     private static final String SIMULATIONS_FOLDER = "simulations";
     private static final String BASE_PATH = "data";
 
     public static void main(String[] args) throws IOException {
+        Locale.setDefault(Locale.US);
         final String simulationName = args[0];
         final int N = Integer.parseInt(args[1]);
         final double L = Double.parseDouble(args[2]);
@@ -44,17 +47,15 @@ public class App {
                 writer.write(" " + p.getId());
             }
             writer.newLine();
-            for (Particle p : grid) {
-                writer.write(String.format("%f %f %f %f", p.getX(), p.getY(), p.getVx(), p.getVy()));
-                writer.newLine();
-            }
+            writeNonFixedParticles(grid, writer);
             for (int i = 1; i < T; i++) {
                 borderParticles.clear();
                 List<Event> events = grid.getNextEvents();
                 double dt = events.get(0).getTime();
                 grid.move(dt);
                 for (Event event : events) {
-                    if (EventType.WALL_COLLISION.equals(event.getEventType())) {
+                    if (EventType.WALL_COLLISION.equals(event.getEventType()) || event.getParticle().isFixed()
+                            || ((ParticleCollisionEvent) event).getOther().isFixed()) {
                         borderParticles.add(event.getParticle());
                     }
                     event.processEvent();
@@ -67,12 +68,19 @@ public class App {
                     writer.write(" " + p.getId());
                 }
                 writer.newLine();
-                for (Particle p : grid) {
-                    writer.write(String.format("%f %f %f %f", p.getX(), p.getY(), p.getVx(), p.getVy()));
-                    writer.newLine();
-                }
+                writeNonFixedParticles(grid, writer);
             }
         }
         System.out.printf("Simulacion %s generada con éxito.%nN = %d, L = %.2f, T = %d%n", simulationName, N, L, T);
+    }
+
+    // Escribe al archivo solo las partículas móviles (no fixed)
+    private static void writeNonFixedParticles(Grid grid, BufferedWriter writer) throws IOException {
+        for (Particle p : grid) {
+            if (!p.isFixed()) {
+                writer.write(String.format("%f %f %f %f", p.getX(), p.getY(), p.getVx(), p.getVy()));
+                writer.newLine();
+            }
+        }
     }
 }

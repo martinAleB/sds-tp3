@@ -127,6 +127,15 @@ def animate_realtime(folder: Path, out_name: str = "animation_rt.mp4", fps: int 
         color="C0"
     )
 
+    # Dibujar partículas como círculos con radio R del static
+    circle_ec = "#1f77b4"  # igual a C0
+    circle_fc = (0.12, 0.47, 0.71, 0.25)
+    circles: List[patches.Circle] = []
+    for i in range(N):
+        c = patches.Circle((pos[0, i, 0], pos[0, i, 1]), R, edgecolor=circle_ec, facecolor=circle_fc, linewidth=1.0)
+        ax.add_patch(c)
+        circles.append(c)
+
     time_text = ax.text(0.02, 0.98, "", transform=ax.transAxes, va="top")
 
     # Timeline de reproducción (1 s sim ~ 1 s anim si speed=1)
@@ -151,15 +160,19 @@ def animate_realtime(folder: Path, out_name: str = "animation_rt.mp4", fps: int 
         p0, v0 = state_at_time(t_play[0])
         quiv.set_offsets(p0)
         quiv.set_UVC(v0[:, 0], v0[:, 1])
+        for i in range(N):
+            circles[i].center = (p0[i, 0], p0[i, 1])
         time_text.set_text(f"t = {t_play[0]:.4f} s   N = {N}")
-        return quiv, time_text
+        return (quiv, time_text, *circles)
 
     def update(tcur):
         p, v = state_at_time(float(tcur))
         quiv.set_offsets(p)
         quiv.set_UVC(v[:, 0], v[:, 1])
+        for i in range(N):
+            circles[i].center = (p[i, 0], p[i, 1])
         time_text.set_text(f"t = {tcur:.6f} s   N = {N}")
-        return quiv, time_text
+        return (quiv, time_text, *circles)
 
     anim = FuncAnimation(
         fig, update, frames=t_play, init_func=init, blit=True,
@@ -187,4 +200,3 @@ if __name__ == "__main__":
     parser.add_argument("--speed", type=float, default=1.0, help="1.0 = real time, >1 faster, <1 slower")
     args = parser.parse_args()
     animate_realtime(args.folder, args.out, fps=args.fps, speed=args.speed)
-
