@@ -74,13 +74,14 @@ def read_dynamic_positions(dynamic_path: Path, N: int) -> Tuple[np.ndarray, np.n
     return np.array(times, dtype=float), np.stack(positions)
 
 
-def compute_msd(positions: np.ndarray) -> np.ndarray:
+def compute_msd(positions: np.ndarray, ref_index: int = 0) -> np.ndarray:
     """
-    Calcula MSD(t) = promedio sobre partículas de |r_i(t) - r_i(0)|^2
+    Calcula MSD(t) = promedio sobre partículas de |r_i(t) - r_i(t0)|^2
     positions: (F, N, 2)
+    ref_index: índice del frame tomado como t0
     return: msd (F,)
     """
-    r0 = positions[0]  # (N,2)
+    r0 = positions[ref_index]  # (N,2)
     disp = positions - r0  # (F,N,2)
     sq = np.sum(disp * disp, axis=2)  # (F,N)
     msd = np.mean(sq, axis=1)  # (F,)
@@ -98,7 +99,7 @@ def linear_fit(x: np.ndarray, y: np.ndarray) -> tuple[float, float, float]:
     return float(a), float(b), E
 
 
-def main(folder: Path, tmin: float = 40.0, dim: int = 2):
+def main(folder: Path, tmin: float = 1.0, tmax: float = 20.0, dim: int = 2, t0: float = 41.0):
     static_path = folder / "static.txt"
     dynamic_path = folder / "dynamic.txt"
 
@@ -106,16 +107,30 @@ def main(folder: Path, tmin: float = 40.0, dim: int = 2):
         raise FileNotFoundError(f"Faltan static.txt o dynamic.txt en {folder}")
 
     N, L, R, M, V, T = read_static(static_path)
-    times, positions = read_dynamic_positions(dynamic_path, N)
+    times_abs, positions = read_dynamic_positions(dynamic_path, N)
 
-    # Alinear tiempos a t=0
-    times = times - times[0]
-    msd = compute_msd(positions)
+    # Elegir t0 como el primer frame con t >= t0
+    idx_candidates = np.where(times_abs >= float(t0))[0]
+    if idx_candidates.size == 0:
+        raise ValueError(
+            f"No hay datos con t >= {t0}. Máximo t disponible: {times_abs.max():.3f}"
+        )
+    i0 = int(idx_candidates[0])
 
-    # Filtrar por t >= tmin
-    mask = times >= float(tmin)
+    # Mover sistema de referencia: tiempos relativos y MSD respecto a r(t0)
+    times = times_abs - times_abs[i0]
+    msd = compute_msd(positions, ref_index=i0)
+
+    # Filtrar por tmin <= t <= tmax
+    tmin = float(tmin)
+    tmax = float(tmax)
+    if tmax <= tmin:
+        raise ValueError(f"Se requiere tmax > tmin (tmin={tmin}, tmax={tmax})")
+    mask = (times >= tmin) & (times <= tmax)
     if not np.any(mask):
-        raise ValueError(f"No hay datos con t >= {tmin}. Máximo t disponible: {times.max():.3f}")
+        raise ValueError(
+            f"No hay datos en el rango {tmin} <= t <= {tmax}. Rango disponible: 0 a {times.max():.3f}"
+        )
     times = times[mask]
     msd = msd[mask]
 
@@ -123,25 +138,33 @@ def main(folder: Path, tmin: float = 40.0, dim: int = 2):
     a, b, E = linear_fit(times, msd)
     # Coeficiente de difusión en 'dim' dimensiones: MSD ≈ 2 d D t + C
     D = a / (2.0 * float(dim))
+    # Reportar por consola con 3 cifras significativas
+    print(f"D = {D:.3g} m^2/s")
+    print(f"E = {E:.3g}")
 
-    fig, ax = plt.subplots(figsize=(12, 6))
+    # Figura con panel lateral derecho para info (D y E)
+    fig = plt.figure(figsize=(12, 6))
+    gs = fig.add_gridspec(nrows=1, ncols=2, width_ratios=[5, 1], wspace=0.05)
+    ax = fig.add_subplot(gs[0, 0])
+    ax_info = fig.add_subplot(gs[0, 1])
+    ax_info.axis('off')
     ax.plot(times, msd, lw=2.0, label="MSD (datos)")
-    ax.plot(times, a * times + b, "--", lw=2.0, label=f"Ajuste: y = {a:.3e} t + {b:.3e}")
+    # Etiqueta del ajuste lineal con 3 cifras significativas y signo correcto
+    a_str = f"{a:.3g}"
+    b_sign = "-" if b < 0 else "+"
+    b_str = f"{abs(b):.3g}"
+    fit_label = f"Ajuste: y = {a_str} t {b_sign} {b_str}"
+    ax.plot(times, a * times + b, "--", lw=2.0, label=fit_label)
     ax.set_xlabel("t [s]", fontsize=18)
-    ax.set_ylabel("MSD", fontsize=18)
+    ax.set_ylabel("Desplazamiento cuadratico medio [m^2]", fontsize=18)
     ax.tick_params(axis='both', labelsize=14)
     ax.grid(True, ls=":", alpha=0.5)
     ax.legend(fontsize=14)
-    # Etiqueta con el coeficiente de difusión
-    ax.text(
-        0.98,
-        0.98,
-        f"D = {D:.3e} m^2/s\nE = {E:.3e}",
-        transform=ax.transAxes,
-        ha="right",
-        va="top",
-        fontsize=16,
-        bbox=dict(boxstyle="round", facecolor="white", alpha=0.85, edgecolor="gray"),
+    # Mostrar D y E en el panel lateral (no sobre el gráfico)
+    ax_info.text(
+        0.0, 0.95,
+        f"D = {D:.3g} m^2/s\nE = {E:#.3g}",
+        ha="left", va="top", fontsize=14, transform=ax_info.transAxes
     )
     fig.tight_layout()
     plt.show()
@@ -150,7 +173,9 @@ def main(folder: Path, tmin: float = 40.0, dim: int = 2):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="Grafica MSD(t) para una simulación")
     ap.add_argument("folder", type=Path, help="Carpeta con static.txt y dynamic.txt")
-    ap.add_argument("--tmin", type=float, default=40.0, help="Tiempo mínimo a graficar [s]")
+    ap.add_argument("--tmin", type=float, default=1.0, help="Tiempo mínimo relativo desde t0 [s]")
+    ap.add_argument("--tmax", type=float, default=20.0, help="Tiempo máximo relativo desde t0 [s]")
     ap.add_argument("--dim", type=int, default=2, help="Dimensionalidad para D (MSD ≈ 2*d*D*t)")
+    ap.add_argument("--t0", type=float, default=41.0, help="Tiempo de referencia t0 [s]")
     args = ap.parse_args()
-    main(args.folder, args.tmin, args.dim)
+    main(args.folder, args.tmin, args.tmax, args.dim, args.t0)
