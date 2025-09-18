@@ -1,15 +1,13 @@
 import argparse
 from pathlib import Path
 from typing import List, Tuple
-
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.animation import FuncAnimation, FFMpegWriter
 
 
-ENCLOSURE = 0.09  # meters (box width/height)
-
+ENCLOSURE = 0.09
 
 def read_static(static_path: Path):
     with static_path.open("r") as f:
@@ -73,7 +71,6 @@ def create_axes(ax, L: float):
     y0 = (ENCLOSURE - L) / 2.0
     y1 = y0 + L
 
-    # vértices del perímetro en sentido horario
     verts = [
         (0.0, 0.0),
         (ENCLOSURE, 0.0),
@@ -93,12 +90,10 @@ def create_axes(ax, L: float):
     )
     ax.add_patch(domain)
 
-    # límites y proporción
     ax.set_xlim(-0.002, 2 * ENCLOSURE + 0.002)
     ax.set_ylim(-0.002, ENCLOSURE + 0.002)
     ax.set_aspect("equal", adjustable="box")
 
-    # eliminar ejes y etiquetas
     ax.axis("off")
 
 
@@ -114,7 +109,6 @@ def animate_realtime(folder: Path, out_name: str = "animation_rt.mp4", fps: int 
     fig, ax = plt.subplots(figsize=(8, 4))
     create_axes(ax, L)
 
-    # Escalado del largo proporcional a |v|, mapeando la mediana a ~5% del recinto
     speeds_all = np.linalg.norm(vel.reshape(-1, 2), axis=1)
     s_med = float(np.median(speeds_all)) if speeds_all.size > 0 else 0.0
     target_len = 0.05 * ENCLOSURE
@@ -127,7 +121,6 @@ def animate_realtime(folder: Path, out_name: str = "animation_rt.mp4", fps: int 
         color="C0"
     )
 
-    # Dibujar partículas como círculos con radio R del static
     circle_ec = "#1f77b4"  # igual a C0
     circle_fc = (0.12, 0.47, 0.71, 0.25)
     circles: List[patches.Circle] = []
@@ -138,20 +131,17 @@ def animate_realtime(folder: Path, out_name: str = "animation_rt.mp4", fps: int 
 
     time_text = ax.text(0.02, 0.98, "", transform=ax.transAxes, va="top")
 
-    # Timeline de reproducción (1 s sim ~ 1 s anim si speed=1)
     dt_play = 1.0 / float(fps)
     t_start, t_end = float(times[0]), float(times[-1])
     t_play = np.arange(t_start, t_end + 1e-12, dt_play / float(speed))
 
     def state_at_time(t: float):
-        # Encuentra intervalo (t_{k-1}, t_k] tal que t <= t_k
         k = int(np.searchsorted(times, t, side="right"))
         if k <= 0:
             return pos[0], vel[0]
         if k >= len(times):
             return pos[-1], vel[-1]
         dt = t - times[k - 1]
-        # Movimiento rectilíneo uniforme entre eventos con vel del frame anterior
         pos_t = pos[k - 1] + vel[k - 1] * dt
         vel_t = vel[k - 1]
         return pos_t, vel_t
@@ -162,7 +152,7 @@ def animate_realtime(folder: Path, out_name: str = "animation_rt.mp4", fps: int 
         quiv.set_UVC(v0[:, 0], v0[:, 1])
         for i in range(N):
             circles[i].center = (p0[i, 0], p0[i, 1])
-        time_text.set_text(f"t = {t_play[0]:.4f} s   N = {N}")
+        #time_text.set_text(f"t = {t_play[0]:.4f} s")
         return (quiv, time_text, *circles)
 
     def update(tcur):
@@ -171,7 +161,7 @@ def animate_realtime(folder: Path, out_name: str = "animation_rt.mp4", fps: int 
         quiv.set_UVC(v[:, 0], v[:, 1])
         for i in range(N):
             circles[i].center = (p[i, 0], p[i, 1])
-        time_text.set_text(f"t = {tcur:.6f} s   N = {N}")
+        #time_text.set_text(f"t = {tcur:.6f} s")
         return (quiv, time_text, *circles)
 
     anim = FuncAnimation(

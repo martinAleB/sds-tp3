@@ -31,3 +31,5 @@ data
 .vscode
 
 .Ds_Store
+
+__pycache__

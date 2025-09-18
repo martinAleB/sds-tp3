@@ -4,8 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import csv
 
-ENC = 0.09      # lado del recinto izquierdo (m)
-EPS = 2e-5      # tolerancia espacial para "estar tocando pared" (m)
+ENC = 0.09
+EPS = 2e-5
 
 def read_static(static_path: Path):
     with static_path.open("r") as f:
@@ -43,7 +43,6 @@ def read_collision_events(dynamic_path: Path, N: int):
             t = float(toks[0])
         except ValueError:
             raise ValueError(f"Línea {i+1}: esperaba tiempo al inicio, leí: {head!r}")
-        # IDs listados en este frame
         raw_ids = []
         for tok in toks[1:]:
             try:
@@ -52,7 +51,6 @@ def read_collision_events(dynamic_path: Path, N: int):
                 pass
         i += 1
 
-        # Leer N partículas
         frame_pos = []
         frame_vel = []
         for p in range(N):
@@ -61,7 +59,7 @@ def read_collision_events(dynamic_path: Path, N: int):
             parts = lines[i].split()
             if len(parts) == 4:
                 x, y, vx, vy = map(float, parts)
-            elif len(parts) == 5:  # tolera "id x y vx vy"
+            elif len(parts) == 5:  
                 _, x, y, vx, vy = parts
                 x, y, vx, vy = map(float, (x, y, vx, vy))
             else:
@@ -70,7 +68,6 @@ def read_collision_events(dynamic_path: Path, N: int):
             frame_vel.append((vx, vy))
             i += 1
 
-        # Para cada ID listado, agregar un evento con el estado de esa partícula
         for pid in raw_ids:
             idx = map_particle_id(pid, N)
             if idx is None:
@@ -89,53 +86,6 @@ def read_collision_events(dynamic_path: Path, N: int):
             np.array(VX, float),
             np.array(VY, float))
 
-# def compute_pressures_from_events(times_ev, X, Y, VX, VY, N, L, R, M, out_csv: Path | None = None):
-#     # Longitudes efectivas de paredes (2D)
-#     len_left  = 4*ENC - L
-#     len_right = 2*ENC + L
-
-#     # Agrupar por tiempo
-#     unique_t, sumL, sumR = [], [], []
-#     i, E = 0, len(times_ev)
-#     while i < E:
-#         t = times_ev[i]
-#         accL, accR = 0.0, 0.0
-#         while i < E and np.isclose(times_ev[i], t):
-#             x, y, vx, vy = X[i], Y[i], VX[i], VY[i]
-#             # Detectar paredes tocadas
-#             hits = classify_wall_and_recinto(x, y, vx, vy, L, R)
-#             for orient, rec in hits:
-#                 delta_p = 2.0 * M * (abs(vx) if orient == 'V' else abs(vy))
-#                 if rec == 'L':
-#                     accL += delta_p
-#                 else:
-#                     accR += delta_p
-#             i += 1
-#         unique_t.append(t)
-#         sumL.append(accL)
-#         sumR.append(accR)
-
-#     unique_t = np.array(unique_t)
-#     sumL = np.array(sumL)
-#     sumR = np.array(sumR)
-
-#     # Calcular presiones en cada intervalo [t_i, t_{i+1})
-#     #dts = np.diff(unique_t)
-#     dts = 1
-#     P_left  = sumL[:-1] / (dts * len_left)
-#     P_right = sumR[:-1] / (dts * len_right)
-#     t_mid   = 0.5 * (unique_t[:-1] + unique_t[1:])
-
-#     # Guardar CSV si se pide
-#     if out_csv is not None:
-#         with out_csv.open("w", newline="") as f:
-#             w = csv.writer(f)
-#             w.writerow(["t", "P_left", "P_right"])
-#             for i in range(len(t_mid)):
-#                 w.writerow([f"{t_mid[i]:.6f}", f"{P_left[i]:.8e}", f"{P_right[i]:.8e}"])
-
-#     return t_mid, P_left, P_right
-
 def compute_pressures_from_events(times_ev, X, Y, VX, VY, N, L, R, M, out_csv: Path | None = None):
     """
     Binning temporal con ΔT fijo (estimado automáticamente):
@@ -143,23 +93,13 @@ def compute_pressures_from_events(times_ev, X, Y, VX, VY, N, L, R, M, out_csv: P
       - Suma impulsos de choques dentro de cada bin.
       - P_left/right = impulso_acum / (dt_bin * longitud_de_pared).
     """
-    # Longitudes efectivas de paredes (2D)
     len_left  = 4*ENC - L
     len_right = 2*ENC + L
 
     if len(times_ev) == 0:
         raise ValueError("No hay eventos de pared.")
 
-    # Elegir dt_bin a partir de la mediana de separaciones entre tiempos únicos
-    # tu = np.unique(times_ev)
-    # if len(tu) >= 3:
-    #     med = float(np.median(np.diff(tu)))
-    #     print(med)
-    #     dt_bin = max(1e-4, min(1, 50.0 * med))  # 50×mediana, limitado a [1e-4, 1] s
-    #     #dt_bin = 1
-    # else:
-    #     dt_bin = 0.1  # fallback razonable
-    dt_bin = 2
+    dt_bin = 1
 
     t0 = float(times_ev.min())
     t1 = float(times_ev.max())
@@ -169,7 +109,6 @@ def compute_pressures_from_events(times_ev, X, Y, VX, VY, N, L, R, M, out_csv: P
     accL = np.zeros(nbins)
     accR = np.zeros(nbins)
 
-    # Acumular impulsos por bin
     for x, y, vx, vy, te in zip(X, Y, VX, VY, times_ev):
         b = int((te - t0) // dt_bin)
         if b < 0 or b >= nbins:
@@ -182,12 +121,10 @@ def compute_pressures_from_events(times_ev, X, Y, VX, VY, N, L, R, M, out_csv: P
             else:
                 accR[b] += delta_p
 
-    # Presiones promediadas por bin
     P_left  = accL / (dt_bin * len_left)
     P_right = accR / (dt_bin * len_right)
     t_mid   = 0.5 * (edges[:-1] + edges[1:])
 
-    # Guardar CSV si se pide
     if out_csv is not None:
         with out_csv.open("w", newline="") as f:
             w = csv.writer(f)
@@ -203,7 +140,6 @@ def classify_wall_and_recinto(x, y, vx, vy, L, R):
     y1 = y0 + L
     hits = []
 
-    # --- VERTICALES (igual que antes) ---
     if abs(x - R) <= EPS and vx > 0:
         hits.append(('V', 'L'))
     if abs(x - (ENC - R)) <= EPS:
@@ -213,15 +149,12 @@ def classify_wall_and_recinto(x, y, vx, vy, L, R):
     if abs(x - (2*ENC - R)) <= EPS and vx < 0:
         hits.append(('V', 'R'))
 
-    # --- HORIZONTALES ---
     if x < ENC:
-        # Recinto izquierdo → solo piso/techo globales
         if abs(y - R) <= EPS and vy > 0:
             hits.append(('H', 'L'))
         if abs(y - (ENC - R)) <= EPS and vy < 0:
             hits.append(('H', 'L'))
     else:
-        # Canal → solo piso/techo canal
         if abs(y - (y0 + R)) <= EPS and vy > 0:
             hits.append(('H', 'R'))
         if abs(y - (y1 - R)) <= EPS and vy < 0:
@@ -236,25 +169,32 @@ def main(folder: Path):
     if not static_path.exists() or not dynamic_path.exists():
         raise FileNotFoundError(f"Faltan static.txt o dynamic.txt en {folder}")
 
-    # Cargar parámetros y eventos
     N, L, R, M, V, T = read_static(static_path)
     times_ev, idx_ev, X, Y, VX, VY = read_collision_events(dynamic_path, N)
 
-    # Calcular presiones
-    t, P_L, P_R = compute_pressures_from_events(times_ev, X, Y, VX, VY, N, L, R, M, folder / "pressures.csv")
+    t, P_L, P_R = compute_pressures_from_events(
+        times_ev, X, Y, VX, VY, N, L, R, M, folder / "pressures.csv"
+    )
 
-    # Descartar caso
     t, P_L, P_R = t[:-1], P_L[:-1], P_R[:-1]
 
-    # Graficar ambas presiones en un solo plot
-    plt.figure(figsize=(10, 5))
-    plt.plot(t, P_L, label="Recinto izquierdo", lw=1.4)
-    plt.plot(t, P_R, label="Recinto derecho (pasillo)", lw=1.4)
-    plt.xlabel("t [s]")
-    plt.ylabel("P [N/m]")
-    #plt.title("Presión vs tiempo en ambos recintos")
-    plt.legend()
-    plt.grid(True, ls=":", alpha=0.5)
+    plt.figure(figsize=(12, 6))
+    plt.plot(t, P_L, label="Recinto izquierdo", lw=2.0, color="C0")
+    plt.plot(t, P_R, label="Recinto derecho (canal)", lw=2.0, color="C1")
+
+    plt.xlabel("Tiempo [s]", fontsize=14)
+    plt.ylabel("Presión [N/m]", fontsize=14)
+
+    plt.legend(fontsize=12, frameon=False)
+    plt.grid(True, ls=":", alpha=0.6)
+
+    plt.tick_params(axis="both", labelsize=12)
+
+    ax = plt.gca()
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    plt.axvline(x=40, color="k", linestyle="--", linewidth=1.2, alpha=0.8)
     plt.tight_layout()
     plt.show()
 

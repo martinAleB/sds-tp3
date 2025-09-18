@@ -1,4 +1,4 @@
-
+# DEPRECATED... USE REALTIME VERSION INSTEAD (animate_sim_realtime.py)
 import argparse
 from pathlib import Path
 import numpy as np
@@ -7,8 +7,7 @@ import matplotlib.patches as patches
 from matplotlib.animation import FuncAnimation, FFMpegWriter
 from typing import Tuple, List
 
-ENCLOSURE = 0.09  # meters (box width/height)
-# Coordinate system matches your simulation (meters).
+ENCLOSURE = 0.09
 
 def read_static(static_path: Path):
     with static_path.open("r") as f:
@@ -56,7 +55,6 @@ def create_axes(ax, L: float):
     y0 = (ENCLOSURE - L) / 2.0
     y1 = y0 + L
 
-    # vértices del perímetro en sentido horario
     verts = [
         (0.0, 0.0),                 
         (ENCLOSURE, 0.0),           
@@ -76,12 +74,10 @@ def create_axes(ax, L: float):
     )
     ax.add_patch(domain)
 
-    # límites y proporción
     ax.set_xlim(-0.002, 2*ENCLOSURE + 0.002)
     ax.set_ylim(-0.002, ENCLOSURE + 0.002)
     ax.set_aspect("equal", adjustable="box")
 
-    # eliminar ejes y etiquetas
     ax.axis("off")
 
 def main(folder: Path, out_name: str = "animation.mp4"):
@@ -97,13 +93,11 @@ def main(folder: Path, out_name: str = "animation.mp4"):
     fig, ax = plt.subplots(figsize=(8, 4))
     create_axes(ax, L)
 
-    # Escalado del largo proporcional a |v|, mapeando la mediana a ~5% del recinto
     speeds_all = np.linalg.norm(vel.reshape(-1, 2), axis=1)
     s_med = float(np.median(speeds_all)) if speeds_all.size > 0 else 0.0
     target_len = 0.05 * ENCLOSURE
     q_scale = (s_med / target_len) if s_med > 0 else 1.0
 
-    # Quiver estilo "palito fino" como en el ejemplo
     quiv = ax.quiver(
         pos[0, :, 0], pos[0, :, 1],
         vel[0, :, 0], vel[0, :, 1],
@@ -116,18 +110,17 @@ def main(folder: Path, out_name: str = "animation.mp4"):
     def init():
         quiv.set_offsets(pos[0])
         quiv.set_UVC(vel[0, :, 0], vel[0, :, 1])
-        time_text.set_text(f"t = {times[0]:.4f} s   N = {N}")
+        time_text.set_text(f"t = {times[0]:.4f} s")
         return quiv, time_text
 
     def update(frame):
         quiv.set_offsets(pos[frame])
         quiv.set_UVC(vel[frame, :, 0], vel[frame, :, 1])
-        time_text.set_text(f"t = {times[frame]:.6f} s   N = {N}")
+        time_text.set_text(f"t = {times[frame]:.6f} s")
         return quiv, time_text
 
     anim = FuncAnimation(fig, update, frames=F, init_func=init, blit=True, interval=16)
     plt.tight_layout()
-    # Save MP4 next to input
     out_path = folder / out_name
     try:
         writer = FFMpegWriter(fps=60, bitrate=2400)
@@ -137,7 +130,6 @@ def main(folder: Path, out_name: str = "animation.mp4"):
         plt.show()
         return
     print(f"Saved: {out_path}")
-    # Also show an interactive preview
     plt.show()
 
 if __name__ == "__main__":
