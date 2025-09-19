@@ -118,6 +118,9 @@ def main(folder: Path, t0_abs: float, tmin: float, tmax: float, dim: int,
     y_hat = a_hat * x
     D = a_hat / (2.0 * float(dim))
 
+    # Imprimir coeficiente de difusión (en m^2/s) sin alterar gráficos
+    print(f"Coeficiente de difusión (D): {D:.6e} m^2/s")
+
     # Gráfico 1: Curva de error 
     plt.figure(figsize=(7.4, 4.8))
     plt.plot(a_grid, E_grid, '-', lw=2)

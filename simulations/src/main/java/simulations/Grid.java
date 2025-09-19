@@ -189,15 +189,13 @@ public class Grid implements Iterable<Particle> {
             boolean onBorder = false;
 
             if (inBox(p)) {
-                // Box walls: left, bottom, top
                 if (x - r <= 0 + EPS)
-                    onBorder = true; // left wall
+                    onBorder = true;
                 if (!onBorder && (y - r <= 0 + EPS))
-                    onBorder = true; // bottom wall
+                    onBorder = true;
                 if (!onBorder && (y + r >= ENCLOSURE_LONG - EPS))
-                    onBorder = true; // top wall
+                    onBorder = true;
 
-                // Right box wall excluding channel opening
                 if (!onBorder && (x + r >= ENCLOSURE_LONG - EPS)) {
                     boolean fullyInsideOpening = (y - r >= channelBelow - EPS) && (y + r <= channelAbove + EPS);
                     if (!fullyInsideOpening) {
@@ -205,13 +203,12 @@ public class Grid implements Iterable<Particle> {
                     }
                 }
             } else if (inChannel(p)) {
-                // Channel walls: bottom (channelBelow), top (channelAbove), and far right wall
                 if (y - r <= channelBelow + EPS)
-                    onBorder = true; // bottom channel wall
+                    onBorder = true;
                 if (!onBorder && (y + r >= channelAbove - EPS))
-                    onBorder = true; // top channel wall
+                    onBorder = true;
                 if (!onBorder && (x + r >= 2 * ENCLOSURE_LONG - EPS))
-                    onBorder = true; // rightmost wall
+                    onBorder = true;
             }
 
             if (onBorder)
@@ -220,20 +217,16 @@ public class Grid implements Iterable<Particle> {
         return borderParticles;
     }
 
-    // Clamp positions into valid domain after events to avoid drift by FP errors
     public void clampAll() {
         for (Particle p : this) {
-            // Clamp X globally to enclosure + channel span
             double x = p.getX();
             if (x < p.getR() - EPS)
                 x = p.getR();
             if (x > 2 * ENCLOSURE_LONG - p.getR() + EPS)
                 x = 2 * ENCLOSURE_LONG - p.getR();
 
-            // Decide Y bounds by region (box vs channel) using X
             double y = p.getY();
             if (x < ENCLOSURE_LONG) {
-                // Box
                 double ymin = p.getR();
                 double ymax = ENCLOSURE_LONG - p.getR();
                 if (y < ymin - EPS)
@@ -241,7 +234,6 @@ public class Grid implements Iterable<Particle> {
                 if (y > ymax + EPS)
                     y = ymax;
             } else if (x < 2 * ENCLOSURE_LONG) {
-                // Channel
                 double ymin = channelBelow + p.getR();
                 double ymax = channelAbove - p.getR();
                 if (y < ymin - EPS)
@@ -249,7 +241,6 @@ public class Grid implements Iterable<Particle> {
                 if (y > ymax + EPS)
                     y = ymax;
             } else {
-                // Far right numerical drift: clamp to boundary
                 double ymin = p.getR();
                 double ymax = ENCLOSURE_LONG - p.getR();
                 if (y < ymin - EPS)

@@ -60,7 +60,6 @@ public class App {
                     }
                     event.processEvent();
                 }
-                // Guard against FP drift pushing particles slightly out of bounds
                 grid.clampAll();
                 tAccum += dt;
                 writer.write(String.valueOf(tAccum));
@@ -74,7 +73,6 @@ public class App {
         System.out.printf("Simulacion %s generada con éxito.%nN = %d, L = %.2f, T = %d%n", simulationName, N, L, T);
     }
 
-    // Escribe al archivo solo las partículas móviles (no fixed)
     private static void writeNonFixedParticles(Grid grid, BufferedWriter writer) throws IOException {
         for (Particle p : grid) {
             if (!p.isFixed()) {

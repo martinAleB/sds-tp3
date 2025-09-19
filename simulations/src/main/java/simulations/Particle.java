@@ -54,37 +54,29 @@ public class Particle {
     }
 
     public Event timeToCollision(Particle other) {
-        // Vectores relativos
         double dx = other.x - this.x;
         double dy = other.y - this.y;
         double dvx = other.vx - this.vx;
         double dvy = other.vy - this.vy;
 
-        // Escalares útiles
-        double rv = dx * dvx + dy * dvy; // Δr · Δv
-        double vv = dvx * dvx + dvy * dvy; // Δv · Δv
-        double rr = dx * dx + dy * dy; // Δr · Δr
-        double sigma = this.r + other.r; // Ri + Rj (acá r es estático, pero queda general)
+        double rv = dx * dvx + dy * dvy;
+        double vv = dvx * dvx + dvy * dvy;
+        double rr = dx * dx + dy * dy;
+        double sigma = this.r + other.r;
 
-        // Sin movimiento relativo
         if (vv == 0.0) {
-            // Si ya están tocando/solapadas, considerá t=0 (colisión inmediata)
             return new ParticleCollisionEvent((rr <= sigma * sigma) ? 0.0 : Double.POSITIVE_INFINITY, this, other);
         }
 
-        // Si no se están acercando, no colisionan
         if (rv >= 0.0)
             return new ParticleCollisionEvent(Double.POSITIVE_INFINITY, this, other);
 
-        // Discriminante
         double d = rv * rv - vv * (rr - sigma * sigma);
         if (d < 0.0)
-            return new ParticleCollisionEvent(Double.POSITIVE_INFINITY, this, other); // no hay solución real
+            return new ParticleCollisionEvent(Double.POSITIVE_INFINITY, this, other);
 
-        // Raíz más chica no negativa
         double t = -(rv + Math.sqrt(d)) / vv;
-        return new ParticleCollisionEvent((t >= 0.0) ? t : Double.POSITIVE_INFINITY, this, other); // guard por redondeo
-                                                                                                   // numérico
+        return new ParticleCollisionEvent((t >= 0.0) ? t : Double.POSITIVE_INFINITY, this, other);
     }
 
     public double getXAfterDt(double dt) {
