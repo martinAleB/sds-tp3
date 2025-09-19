@@ -134,7 +134,7 @@ def main(folder: Path, t0_abs: float, tmin: float, tmax: float, dim: int,
     ax_err.yaxis.get_offset_text().set_fontsize(14)
 
     plt.xlabel('a', fontsize=16)
-    plt.ylabel('E(a)', fontsize=16)
+    plt.ylabel('Error', fontsize=16)
     plt.tick_params(axis="both", labelsize=13)
     plt.grid(True, ls=':', alpha=0.5)
     plt.legend(fontsize=14)
@@ -152,8 +152,8 @@ def main(folder: Path, t0_abs: float, tmin: float, tmax: float, dim: int,
     ax_msd.yaxis.set_major_formatter(sci_formatter())
     ax_msd.yaxis.get_offset_text().set_fontsize(14)
 
-    plt.xlabel("t[s]", fontsize=16)
-    plt.ylabel("MSD[m$^2$]", fontsize=16)
+    plt.xlabel("Tiempo (s)", fontsize=16)
+    plt.ylabel("MSD (m$^2$)", fontsize=16)
     plt.tick_params(axis="both", labelsize=13)
     plt.grid(True, ls=':', alpha=0.5)
     plt.legend(fontsize=14)

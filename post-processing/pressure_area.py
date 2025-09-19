@@ -70,10 +70,10 @@ def main(folders):
 
     plt.figure(figsize=(7.5, 5))
     plt.errorbar(Ainv_vals, Pavg_vals, yerr=Pstd_vals, fmt='o', lw=1.2, capsize=4)
-    plt.xlabel(r"$A^{-1}$  [m$^{-2}$]", fontsize=14)
-    plt.ylabel(r"$\overline{P}$  [N/m]", fontsize=14)
+    plt.xlabel(r"$Area^{-1}$  (m$^{-2}$)", fontsize=20)
+    plt.ylabel(r"Presión Promedio  (Pa$\cdot$m)", fontsize=20)
     #plt.title(r"Presión promedio en régimen vs $A^{-1}$")
-    plt.tick_params(axis="both", labelsize=12)
+    plt.tick_params(axis="both", labelsize=20)
     plt.grid(True, ls=":", alpha=0.5)
     plt.tight_layout()
     plt.show()

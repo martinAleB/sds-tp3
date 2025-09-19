@@ -182,13 +182,13 @@ def main(folder: Path):
     plt.plot(t, P_L, label="Recinto izquierdo", lw=2.0, color="C0")
     plt.plot(t, P_R, label="Recinto derecho (canal)", lw=2.0, color="C1")
 
-    plt.xlabel("Tiempo [s]", fontsize=14)
-    plt.ylabel("Presión [N/m]", fontsize=14)
+    plt.xlabel("Tiempo (s)", fontsize=20)
+    plt.ylabel("Presión (Pa$\cdot$m)", fontsize=20)
 
-    plt.legend(fontsize=12, frameon=False)
+    plt.legend(fontsize=20, frameon=False)
     plt.grid(True, ls=":", alpha=0.6)
 
-    plt.tick_params(axis="both", labelsize=12)
+    plt.tick_params(axis="both", labelsize=20)
 
     ax = plt.gca()
     ax.spines["top"].set_visible(False)
